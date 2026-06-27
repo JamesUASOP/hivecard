@@ -1,14 +1,19 @@
 {% extends "base.html" %}
 {% from 'docs/_links.html' import help_index_href, section_href, app_href, online_docs_href %}
 {% block title %}{% block docs_title %}Help — HIVECARD{% endblock %}{% endblock %}
+{% block head %}
+{% if static_docs %}
+<link rel="icon" href="assets/images/versa-logo.png" type="image/png">
+{% endif %}
+{% endblock %}
 {% block body %}
 <div class="docs-app">
   <header class="docs-header">
     <a href="{{ help_index_href() }}" class="docs-brand">
       {% if static_docs %}
-      <div class="brand-icon docs-brand-icon">H</div>
+      <img src="assets/images/versa-logo.png" alt="VERSA" class="brand-logo docs-logo">
       {% else %}
-      <img src="{{ url_for('static', filename='images/hivecard-logo.png') }}" alt="HIVECARD" class="brand-logo docs-logo">
+      <img src="{{ url_for('static', filename='images/versa-logo.png') }}" alt="VERSA" class="brand-logo docs-logo">
       {% endif %}
     </a>
     <h1>HIVECARD Help</h1>
