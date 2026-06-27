@@ -1,0 +1,35 @@
+{% from 'docs/_video_slot.html' import video_slot %}
+
+<section class="docs-section" id="logs_troubleshooting">
+  <h2>Logs &amp; Troubleshooting</h2>
+  {{ video_slot('logs_troubleshooting', videos) }}
+
+  <p>The <strong>Logs</strong> tab shows recent system output. It refreshes automatically while you are on that panel.</p>
+
+  <h3>Common issues</h3>
+  <dl class="docs-faq">
+    <dt>Vehicle not in New panel</dt>
+    <dd>Build the ArduPilot SITL binary in <strong>Settings → Build SITL Binaries</strong>, then reload the page.</dd>
+
+    <dt>PX4 option disabled</dt>
+    <dd>PX4 SIH is not installed on this device. Check <strong>Settings → PX4 SIH</strong> for status.</dd>
+
+    <dt>Cannot start another aircraft</dt>
+    <dd>All three slots (AC01–AC03) may be in use. Stop one aircraft or use <strong>Stop All</strong>.</dd>
+
+    <dt>QGC shows no data</dt>
+    <dd>Confirm you are on HiveCard WiFi, GCS status is <strong>Ready</strong>, and you are using the correct UDP port and Hotspot IP from the fleet card.</dd>
+
+    <dt>WiFi name change failed</dt>
+    <dd>Hotspot controls may need to be installed on the device. Contact your administrator if you see a permissions error.</dd>
+
+    <dt>Lost WiFi after SSID change</dt>
+    <dd>The hotspot reconnects with the new name. Join the updated network and open <code>http://hivecard/login</code> again.</dd>
+  </dl>
+
+  {% if not (docs_brief|default(false)) %}
+  <div class="docs-callout docs-callout-tip">
+    <strong>Tip:</strong> If an aircraft is stuck in <strong>Starting</strong> for more than a minute, stop it and check Logs for errors. You can also stop and restart from the Dashboard.
+  </div>
+  {% endif %}
+</section>

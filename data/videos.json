@@ -1,0 +1,30 @@
+{
+  "getting_started": {
+    "title": "Getting started with HiveCard",
+    "youtube_url": ""
+  },
+  "dashboard_fleet": {
+    "title": "Dashboard and fleet overview",
+    "youtube_url": ""
+  },
+  "start_aircraft": {
+    "title": "Starting a simulated aircraft",
+    "youtube_url": ""
+  },
+  "connect_qgc": {
+    "title": "Connect QGroundControl",
+    "youtube_url": ""
+  },
+  "locations": {
+    "title": "Managing locations",
+    "youtube_url": ""
+  },
+  "settings": {
+    "title": "Settings walkthrough",
+    "youtube_url": ""
+  },
+  "logs_troubleshooting": {
+    "title": "Logs and troubleshooting",
+    "youtube_url": ""
+  }
+}

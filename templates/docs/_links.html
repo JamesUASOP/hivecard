@@ -1,0 +1,15 @@
+{% macro help_index_href() -%}
+{%- if static_docs -%}index.html{%- else -%}{{ url_for('help_index') }}{%- endif -%}
+{%- endmacro %}
+
+{% macro section_href(section_id) -%}
+{%- if static_docs -%}{{ section_id }}.html{%- else -%}{{ url_for('help_section', section_id=section_id) }}{%- endif -%}
+{%- endmacro %}
+
+{% macro app_href() -%}
+{%- if static_docs -%}http://hivecard/login{%- else -%}{{ url_for('login') }}{%- endif -%}
+{%- endmacro %}
+
+{% macro online_docs_href() -%}
+https://jamesuasop.github.io/hivecard/
+{%- endmacro %}

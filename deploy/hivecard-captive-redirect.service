@@ -1,0 +1,13 @@
+[Unit]
+Description=HiveCard hotspot HTTP redirect (port 80 to web GUI)
+After=network-online.target NetworkManager.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/hivecard-captive-redirect.sh
+ExecStop=/bin/sh -c 'nft delete table ip hivecard 2>/dev/null || true'
+
+[Install]
+WantedBy=multi-user.target

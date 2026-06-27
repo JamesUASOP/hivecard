@@ -1,0 +1,37 @@
+{% from 'docs/_video_slot.html' import video_slot %}
+
+<section class="docs-section" id="settings">
+  <h2>Settings</h2>
+  {{ video_slot('settings', videos) }}
+
+  <p>The <strong>Settings</strong> tab shows connection info and device configuration.</p>
+
+  <h3>Info summary</h3>
+  <ul>
+    <li><strong>Web GUI</strong> — browser URL for this device</li>
+    <li><strong>Hotspot login</strong> — captive portal entry (<code>http://hivecard/login</code>)</li>
+    <li><strong>Hotspot IP</strong> — use this IP for QGroundControl UDP links</li>
+    <li><strong>WiFi name</strong> — current hotspot SSID</li>
+    <li><strong>Account</strong> — logged-in username</li>
+    <li><strong>PX4 SIH</strong> — whether PX4 is installed</li>
+  </ul>
+
+  <h3>WiFi Hotspot</h3>
+  <p>Change the network name (SSID) clients see when scanning for WiFi. Saving may briefly disconnect the hotspot — reconnect using the new name.</p>
+
+  <h3>Change Login</h3>
+  <p>Update username and/or password. You must enter your current password. Password must be at least 4 characters; username at least 3.</p>
+
+  {% if not (docs_brief|default(false)) %}
+  <h3>Build SITL Binaries</h3>
+  <p>ArduPilot vehicles must be compiled before they appear in the New panel. Each row shows a vehicle that needs building — tap <strong>Build</strong> and wait for completion. The page reloads when done.</p>
+
+  <h3>Sign Out</h3>
+  <p>Ends your session. You will need to sign in again, especially after a device reboot.</p>
+
+  <div class="docs-callout docs-callout-tip">
+    <strong>Help &amp; Instructions</strong> in Settings opens on-device docs at <code>/help</code>, or read online at
+    <a href="https://jamesuasop.github.io/hivecard/" target="_blank" rel="noopener">jamesuasop.github.io/hivecard</a>.
+  </div>
+  {% endif %}
+</section>

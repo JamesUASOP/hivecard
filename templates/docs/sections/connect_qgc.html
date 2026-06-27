@@ -1,0 +1,38 @@
+{% from 'docs/_video_slot.html' import video_slot %}
+
+<section class="docs-section" id="connect_qgc">
+  <h2>Connect QGroundControl</h2>
+  {{ video_slot('connect_qgc', videos) }}
+
+  <p>Each running aircraft exposes a UDP port on the HiveCard hotspot. Use the address shown on the aircraft card under <strong>UDP</strong>.</p>
+
+  <h3>Connection steps</h3>
+  <ol class="docs-steps">
+    <li>Connect your phone or tablet to the HiveCard WiFi network.</li>
+    <li>Start an aircraft on the Dashboard and wait until <strong>GCS</strong> shows <strong>Ready</strong>.</li>
+    <li>In QGroundControl, add a <strong>UDP</strong> communication link.</li>
+    <li>Enter the HiveCard <strong>Hotspot IP</strong> (from Settings, often <strong>10.42.0.1</strong>) and the port from the aircraft card.</li>
+    <li>Connect and verify telemetry. Match the <strong>SysID</strong> on the card if running multiple aircraft.</li>
+  </ol>
+
+  <h3>Default ports</h3>
+  <table class="docs-port-table">
+    <thead>
+      <tr><th>Aircraft</th><th>UDP port</th><th>SysID</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>AC01</td><td>14550</td><td>1</td></tr>
+      <tr><td>AC02</td><td>14551</td><td>2</td></tr>
+      <tr><td>AC03</td><td>14552</td><td>3</td></tr>
+    </tbody>
+  </table>
+
+  {% if not (docs_brief|default(false)) %}
+  <div class="docs-callout docs-callout-tip">
+    <strong>Tip:</strong> QGC setup varies by version. Some builds listen on a local port; others connect directly to <code>10.42.0.1:14550</code>. Use the exact <strong>UDP</strong> string shown on your fleet card.
+  </div>
+
+  <h3>Multiple aircraft</h3>
+  <p>Run separate QGC links (or instances) for each aircraft, each on a different UDP port. Always confirm the SysID matches the slot you intend to control.</p>
+  {% endif %}
+</section>

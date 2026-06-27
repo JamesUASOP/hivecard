@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% from 'docs/_links.html' import help_index_href, section_href, app_href, online_docs_href %}
+{% block title %}{% block docs_title %}Help — HIVECARD{% endblock %}{% endblock %}
+{% block body %}
+<div class="docs-app">
+  <header class="docs-header">
+    <a href="{{ help_index_href() }}" class="docs-brand">
+      {% if static_docs %}
+      <div class="brand-icon docs-brand-icon">H</div>
+      {% else %}
+      <img src="{{ url_for('static', filename='images/hivecard-logo.png') }}" alt="HIVECARD" class="brand-logo docs-logo">
+      {% endif %}
+    </a>
+    <h1>HIVECARD Help</h1>
+    <p class="docs-tagline">A Mobile Simulation Tool</p>
+    {% block docs_header_actions %}
+    <div class="docs-header-actions">
+      {% if static_docs %}
+      <a href="{{ online_docs_href() }}" class="docs-btn">Online docs</a>
+      <a href="{{ app_href() }}" class="docs-btn docs-btn-primary">Open on your HiveCard</a>
+      {% else %}
+      <a href="{{ online_docs_url }}" class="docs-btn" target="_blank" rel="noopener">Online docs</a>
+      <a href="{{ app_href() }}" class="docs-btn docs-btn-primary">Sign in to app</a>
+      {% endif %}
+    </div>
+    {% endblock %}
+  </header>
+
+  <div class="docs-body">
+    {% if docs_sections %}
+    <nav class="docs-toc" aria-label="Help topics">
+      <h2 class="docs-toc-title">Topics</h2>
+      <ul>
+        {% for item in docs_sections %}
+        <li>
+          <a href="{{ section_href(item.id) }}"{% if section is defined and section.id == item.id %} class="active"{% endif %}>{{ item.title }}</a>
+        </li>
+        {% endfor %}
+      </ul>
+    </nav>
+    {% endif %}
+
+    <main class="docs-main">
+      {% block docs_content %}{% endblock %}
+    </main>
+  </div>
+</div>
+{% endblock %}

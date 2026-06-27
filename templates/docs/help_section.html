@@ -1,0 +1,31 @@
+{% extends "docs/layout.html" %}
+{% from 'docs/_links.html' import help_index_href, section_href %}
+{% block docs_title %}{{ section.title }} — HIVECARD Help{% endblock %}
+{% block docs_content %}
+<p class="docs-back"><a href="{{ help_index_href() }}">← All topics</a></p>
+
+{% set docs_brief = docs_brief|default(true) %}
+{% include 'docs/sections/' ~ section.id ~ '.html' %}
+
+<nav class="docs-section-nav">
+  {% set ns = namespace(prev=none, next=none, found=false) %}
+  {% for item in docs_sections %}
+    {% if ns.found and not ns.next %}
+      {% set ns.next = item %}
+    {% endif %}
+    {% if item.id == section.id %}
+      {% set ns.found = true %}
+    {% elif not ns.found %}
+      {% set ns.prev = item %}
+    {% endif %}
+  {% endfor %}
+  {% if ns.prev %}
+  <a href="{{ section_href(ns.prev.id) }}" class="docs-section-nav-prev">← {{ ns.prev.title }}</a>
+  {% else %}
+  <span></span>
+  {% endif %}
+  {% if ns.next %}
+  <a href="{{ section_href(ns.next.id) }}" class="docs-section-nav-next">{{ ns.next.title }} →</a>
+  {% endif %}
+</nav>
+{% endblock %}

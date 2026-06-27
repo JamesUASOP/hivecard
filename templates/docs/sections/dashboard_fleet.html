@@ -1,0 +1,34 @@
+{% from 'docs/_video_slot.html' import video_slot %}
+
+<section class="docs-section" id="dashboard_fleet">
+  <h2>Dashboard &amp; Fleet</h2>
+  {{ video_slot('dashboard_fleet', videos) }}
+
+  <p>The <strong>Dashboard</strong> shows every simulated aircraft currently running on HiveCard. You can run up to <strong>3 aircraft</strong> at once (AC01, AC02, AC03).</p>
+
+  <h3>Toolbar</h3>
+  <ul>
+    <li><strong>Connected | Errors</strong> — summary of fleet health</li>
+    <li><strong>N/3 Aircraft</strong> — how many slots are in use</li>
+    <li><strong>Stop All</strong> — stops every running simulator</li>
+    <li><strong>+ Add</strong> — opens the New panel to start another aircraft</li>
+  </ul>
+
+  <h3>Aircraft card</h3>
+  <p>Each card shows:</p>
+  <ul>
+    <li><strong>Status</strong> — Running, Starting, or Stopped</li>
+    <li><strong>Stack</strong> — ArduPilot or PX4</li>
+    <li><strong>Firmware</strong> and <strong>Airframe</strong></li>
+    <li><strong>Connection</strong> — GCS readiness, UDP address, and SysID</li>
+    <li><strong>Location</strong> — spawn name and coordinates</li>
+  </ul>
+
+  {% if not (docs_brief|default(false)) %}
+  <div class="docs-callout docs-callout-tip">
+    <strong>Tip:</strong> Wait until GCS shows <strong>Ready</strong> before connecting QGroundControl. While status is <strong>Starting</strong>, the simulator is still booting.
+  </div>
+
+  <p>Use <strong>Stop</strong> on a card to shut down one aircraft, or <strong>Stop All</strong> to clear the entire fleet.</p>
+  {% endif %}
+</section>

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Sign In — HIVECARD{% endblock %}
+{% block body %}
+<div class="login-page">
+  <div class="login-box">
+    <img src="{{ url_for('static', filename='images/hivecard-logo.png') }}" alt="HIVECARD" class="brand-logo">
+    <h1>HIVECARD<span class="title-sub">A Mobile Simulation Tool</span></h1>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, message in messages %}
+        <div class="flash error">{{ message }}</div>
+      {% endfor %}
+    {% endwith %}
+    <form method="post">
+      <label for="username">Username</label>
+      <input type="text" id="username" name="username" autocomplete="username" required autofocus>
+      <label for="password">Password</label>
+      <input type="password" id="password" name="password" autocomplete="current-password" required>
+      <button type="submit" class="btn-signin">Sign in</button>
+    </form>
+    <p class="help-link"><a href="{{ url_for('help_index') }}">Help on this device</a> · <a href="{{ online_docs_url }}" target="_blank" rel="noopener">Online instructions</a></p>
+  </div>
+</div>
+{% endblock %}

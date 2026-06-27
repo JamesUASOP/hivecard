@@ -1,0 +1,2 @@
+# Allow hivecard-web user to rename the hotspot without a password prompt.
+uasop ALL=(ALL) NOPASSWD: /usr/local/sbin/hivecard-set-wifi-ssid.sh *

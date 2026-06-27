@@ -1,0 +1,37 @@
+{% from 'docs/_video_slot.html' import video_slot %}
+
+<section class="docs-section" id="start_aircraft">
+  <h2>Start Aircraft</h2>
+  {{ video_slot('start_aircraft', videos) }}
+
+  <p>Open the <strong>New</strong> tab to launch a simulator. HiveCard supports <strong>ArduPilot</strong> and <strong>PX4</strong> stacks on the same device (mixed fleet).</p>
+
+  <h3>Steps</h3>
+  <ol class="docs-steps">
+    <li>Choose <strong>Autopilot Stack</strong> — ArduPilot or PX4 (PX4 requires SIH to be installed on the device).</li>
+    <li>Select vehicle type and frame (ArduPilot) or PX4 airframe (SIH model).</li>
+    <li>Pick a <strong>Starting Location</strong> from your favorites or full list.</li>
+    <li>Tap <strong>Start Aircraft</strong>. You are returned to the Dashboard while the sim boots.</li>
+  </ol>
+
+  {% if not (docs_brief|default(false)) %}
+  <h3>ArduPilot</h3>
+  <ul>
+    <li>Choose a vehicle such as Copter, Plane, or Rover, then pick a frame from the icon grid.</li>
+    <li>The SITL binary must be built first — go to <strong>Settings → Build SITL Binaries</strong> if your vehicle is missing from the list.</li>
+    <li>Location <strong>heading</strong> is applied when spawning ArduPilot aircraft.</li>
+  </ul>
+
+  <h3>PX4</h3>
+  <ul>
+    <li>Select a PX4 SIH airframe: Quadcopter, Hexacopter, Standard VTOL, or Rover.</li>
+    <li>PX4 uses latitude, longitude, and MSL altitude only — <strong>heading is ignored</strong>.</li>
+  </ul>
+
+  <div class="docs-callout docs-callout-warn">
+    <strong>Note:</strong> If all three slots are full, the <strong>+ Add</strong> button is disabled until you stop an aircraft.
+  </div>
+  {% else %}
+  <p class="docs-more">Build ArduPilot binaries in Settings before first use. See the full Help tab for stack-specific details.</p>
+  {% endif %}
+</section>

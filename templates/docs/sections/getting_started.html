@@ -1,0 +1,34 @@
+{% from 'docs/_video_slot.html' import video_slot %}
+
+<section class="docs-section" id="getting_started">
+  <h2>Getting Started</h2>
+  {{ video_slot('getting_started', videos) }}
+
+  <p>HiveCard is a mobile simulation tool that runs software-in-the-loop (SITL) aircraft on a Raspberry Pi and broadcasts them over WiFi so you can connect with QGroundControl or another GCS.</p>
+
+  <h3>Quick start</h3>
+  <ol class="docs-steps">
+    <li>On your phone, tablet, or laptop, open WiFi settings and join the HiveCard network. The default network name is <strong>HiveCard</strong> (you can change it later in Settings).</li>
+    <li>Open a browser and go to <strong>http://hivecard/login</strong> or <strong>http://10.42.0.1:8080</strong>.</li>
+    <li>Sign in with your HiveCard username and password. The factory default is <strong>hivecard</strong> / <strong>hivecard</strong> until you change it in Settings.</li>
+    <li>Use the bottom navigation to move between Dashboard, New, Logs, Locations, Settings, and Help.</li>
+  </ol>
+
+  {% if not (docs_brief|default(false)) %}
+  <div class="docs-callout docs-callout-tip">
+    <strong>Tip:</strong> After a power cycle or service restart you will need to sign in again. Sessions do not persist across reboots.
+  </div>
+
+  <h3>Bottom navigation</h3>
+  <ul>
+    <li><strong>Dashboard</strong> — see running aircraft and connection info</li>
+    <li><strong>New</strong> — start a simulator (ArduPilot or PX4)</li>
+    <li><strong>Logs</strong> — read system output for debugging</li>
+    <li><strong>Locations</strong> — manage spawn locations</li>
+    <li><strong>Settings</strong> — WiFi name, login, and SITL builds</li>
+    <li><strong>Help</strong> — full instructions (this guide)</li>
+  </ul>
+  {% else %}
+  <p class="docs-more">Sign in to the app and open the <strong>Help</strong> tab for the full walkthrough with videos.</p>
+  {% endif %}
+</section>

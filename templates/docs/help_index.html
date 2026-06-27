@@ -1,0 +1,43 @@
+{% extends "docs/layout.html" %}
+{% from 'docs/_links.html' import section_href, app_href %}
+{% block docs_title %}Help &amp; Instructions — HIVECARD{% endblock %}
+{% block docs_content %}
+<div class="docs-hero">
+  <h2>Learn HiveCard</h2>
+  <p>Step-by-step guides for starting simulators, connecting QGroundControl, managing locations, and configuring your device.</p>
+  {% if static_docs %}
+  <p class="docs-online-note">You can read these instructions anytime at <a href="https://jamesuasop.github.io/hivecard/">jamesuasop.github.io/hivecard</a> — no need to connect to a HiveCard device first.</p>
+  {% endif %}
+</div>
+
+<div class="docs-quickstart panel-card">
+  <h3>Quick start</h3>
+  <ol class="docs-steps">
+    <li>Join the <strong>HiveCard</strong> WiFi network on your device.</li>
+    <li>Open <strong>http://hivecard/login</strong> in your browser.</li>
+    <li>Sign in and tap <strong>New</strong> to start a simulated aircraft.</li>
+    <li>Connect QGroundControl using the UDP address on the Dashboard card.</li>
+  </ol>
+</div>
+
+<div class="docs-cards">
+  {% for item in docs_sections %}
+  <a href="{{ section_href(item.id) }}" class="docs-card panel-card">
+    <h3>{{ item.title }}</h3>
+    <p>{{ item.summary }}</p>
+    <span class="docs-card-link">Read guide →</span>
+  </a>
+  {% endfor %}
+</div>
+
+<div class="docs-cta panel-card">
+  <h3>Ready to fly?</h3>
+  {% if static_docs %}
+  <p>Connect to your HiveCard WiFi and open the web app to start simulators and connect QGroundControl.</p>
+  <a href="{{ app_href() }}" class="docs-btn docs-btn-primary">Open on your HiveCard</a>
+  {% else %}
+  <p>Sign in to the web app for the full interactive experience, including the Help tab with detailed walkthroughs.</p>
+  <a href="{{ app_href() }}" class="docs-btn docs-btn-primary">Sign in</a>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,32 @@
+{% from 'docs/_video_slot.html' import video_slot %}
+
+<section class="docs-section" id="locations">
+  <h2>Locations</h2>
+  {{ video_slot('locations', videos) }}
+
+  <p>Locations define where simulated aircraft spawn. Open the <strong>Locations</strong> tab to manage them.</p>
+
+  <h3>List view</h3>
+  <ul>
+    <li>Search by name using the search box.</li>
+    <li>Filter by <strong>My Locations</strong>, <strong>Favorites</strong>, or <strong>All</strong>.</li>
+    <li>Tap <strong>+ Add New Location</strong> to create a custom spot.</li>
+    <li>Use <strong>Edit</strong> or <strong>Del</strong> on user-created locations. Built-in ArduPilot imports cannot be deleted.</li>
+  </ul>
+
+  <h3>Add or edit a location</h3>
+  <ol class="docs-steps">
+    <li>Enter a <strong>Name</strong> (required).</li>
+    <li>Set <strong>Latitude</strong>, <strong>Longitude</strong>, <strong>Altitude (m)</strong>, and <strong>Heading</strong>.</li>
+    <li>Optionally set category, description, and mark as favorite.</li>
+    <li>Tap <strong>Save Location</strong> or <strong>Update Location</strong>.</li>
+  </ol>
+
+  {% if not (docs_brief|default(false)) %}
+  <div class="docs-callout docs-callout-warn">
+    <strong>Heading:</strong> Applies to ArduPilot spawns only. PX4 SIH uses latitude, longitude, and MSL altitude.
+  </div>
+
+  <p>When starting an aircraft, open the <strong>New</strong> tab and pick a location from the Starting Location list. Tap <strong>Need a new spot?</strong> to jump to Locations.</p>
+  {% endif %}
+</section>

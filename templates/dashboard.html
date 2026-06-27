@@ -1,0 +1,924 @@
+{% extends "base.html" %}
+{% block title %}HIVECARD - A Mobile Simulation Tool{% endblock %}
+{% block body %}
+<div class="app">
+  <header class="app-header">
+    <img src="{{ url_for('static', filename='images/hivecard-logo.png') }}" alt="HIVECARD" class="brand-logo">
+    <h1>HIVECARD<span class="title-sub">A Mobile Simulation Tool</span></h1>
+  </header>
+
+  <!-- Dashboard panel -->
+  <div class="panel active" id="panel-dashboard">
+    <div class="toolbar">
+      <div class="summary">
+        <span class="dot {{ '' if fleet.running_count else 'off' }}" id="summary-dot"></span>
+        <span id="summary-text">{{ fleet.connected_count }} Connected | {{ fleet.error_count }} Errors</span>
+      </div>
+      <div style="display:flex;gap:0.5rem;align-items:center">
+        <span class="slots-badge {{ 'full' if fleet.slots_available == 0 else '' }}" id="slots-badge">{{ fleet.running_count }}/{{ fleet.max_instances }} Aircraft</span>
+        <button class="btn-stop-all" id="btn-stop-all" type="button" style="{{ 'display:none' if not fleet.running_count else '' }}">Stop All</button>
+        <button class="btn-add" id="btn-add-vehicle" type="button" {{ 'disabled' if fleet.slots_available == 0 else '' }}>+ Add</button>
+      </div>
+    </div>
+
+    <div class="fleet-list" id="fleet-list"></div>
+    <div class="empty-state" id="fleet-empty" style="{{ 'display:none' if fleet.instances else '' }}">
+      No aircraft running. Tap <strong>+ Add</strong> to start a simulator.
+    </div>
+    <div class="toast" id="message-dash"></div>
+  </div>
+
+  <!-- New aircraft panel -->
+  <div class="panel" id="panel-new">
+    <div class="panel-card">
+      <h2>Start Aircraft</h2>
+      <p style="font-size:0.8rem;color:var(--muted);margin-bottom:0.75rem" id="new-slots-msg">
+        {{ fleet.running_count }} of {{ fleet.max_instances }} slots in use.
+      </p>
+      <label>Autopilot Stack</label>
+      <div class="loc-filter-row" id="new-stack-filters" style="margin-bottom:0.75rem">
+        <button type="button" class="loc-filter-btn active" data-stack="ardupilot">ArduPilot</button>
+        <button type="button" class="loc-filter-btn" data-stack="px4" {{ 'disabled' if not px4_status.installed else '' }}>PX4</button>
+      </div>
+      {% if not px4_status.installed %}
+      <p id="px4-missing-msg" style="font-size:0.75rem;color:var(--muted);margin:-0.35rem 0 0.75rem;display:none">
+        PX4 SIH is not installed on this device. See Settings for status.
+      </p>
+      {% endif %}
+
+      <div id="new-ap-section" {% if not vehicles %}style="display:none"{% endif %}>
+      <label for="new-vehicle">Vehicle Type</label>
+      <select id="new-vehicle" style="margin-bottom:0.75rem">
+        {% for v in vehicles %}
+          <option value="{{ v.vehicle }}" data-default="{{ v.default_frame }}">{{ v.vehicle }}</option>
+        {% endfor %}
+      </select>
+
+      <label for="new-frame">Frame / Model</label>
+      <div class="frame-picker" style="margin-bottom:0.75rem">
+        <div class="frame-preview" id="new-frame-preview">
+          <div class="frame-preview-icon" id="new-frame-preview-icon"></div>
+          <div class="frame-preview-text">
+            <div class="frame-preview-name" id="new-frame-preview-name">quad</div>
+            <div class="frame-preview-type" id="new-frame-preview-type">Quadcopter (+)</div>
+          </div>
+        </div>
+        <div class="custom-frame-select" id="new-custom-frame-select">
+          <button type="button" class="custom-frame-trigger" id="new-frame-trigger" aria-haspopup="listbox">
+            <span class="trigger-icon" id="new-trigger-icon"></span>
+            <span class="trigger-text" id="new-trigger-text">quad</span>
+            <span class="trigger-chevron">▼</span>
+          </button>
+          <div class="custom-frame-list" id="new-frame-list" role="listbox"></div>
+          <select id="new-frame" class="frame-native-hidden" aria-hidden="true"></select>
+        </div>
+      </div>
+      </div>
+
+      <div id="new-px4-section" style="display:none">
+        <label for="new-px4-model">PX4 Airframe (SIH)</label>
+        <select id="new-px4-model" style="margin-bottom:0.75rem">
+          {% for m in px4_models %}
+          <option value="{{ m.model }}" data-frame="{{ m.frame }}">{{ m.label }}</option>
+          {% endfor %}
+        </select>
+        <div class="frame-picker" style="margin-bottom:0.75rem">
+          <div class="frame-preview" id="new-px4-preview">
+            <div class="frame-preview-icon" id="new-px4-preview-icon"></div>
+            <div class="frame-preview-text">
+              <div class="frame-preview-name" id="new-px4-preview-name">Quadcopter</div>
+              <div class="frame-preview-type" id="new-px4-preview-type">PX4 SIH</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {% if vehicles or px4_status.installed %}
+      <label>Starting Location</label>
+      <div class="loc-picker" id="new-loc-picker">
+        <input type="text" class="loc-picker-search" id="new-loc-search" placeholder="Search locations by name..." autocomplete="off">
+        <div class="loc-filter-row" id="new-loc-filters">
+          <button type="button" class="loc-filter-btn active" data-filter="favorites">Favorites</button>
+          <button type="button" class="loc-filter-btn" data-filter="user">My Locations</button>
+          <button type="button" class="loc-filter-btn" data-filter="all">All</button>
+        </div>
+        <div class="loc-picker-list" id="new-loc-list"></div>
+        <div class="loc-selected-preview" id="new-loc-preview">No location selected</div>
+        <p id="px4-loc-hint" style="display:none;font-size:0.75rem;color:var(--muted);margin:0.35rem 0 0">
+          PX4 SIH spawns at latitude, longitude, and MSL altitude. Heading applies to ArduPilot only.
+        </p>
+        <input type="hidden" id="new-location" value="">
+        <p style="font-size:0.75rem;color:var(--muted);margin-top:0.35rem">
+          Need a new spot? Open <strong>Locations</strong> in the bottom nav.
+        </p>
+      </div>
+
+      <button class="action-btn btn-restart" id="btn-new-start" type="button" style="width:100%;justify-content:center;margin-top:0.75rem" {{ 'disabled' if fleet.slots_available == 0 else '' }}>
+        Start Aircraft
+      </button>
+      {% else %}
+      <div class="empty-state">Build ArduPilot SITL binaries in Settings, or install PX4 SIH on this device.</div>
+      {% endif %}
+      <div class="toast" id="message-new"></div>
+    </div>
+  </div>
+
+  <!-- Logs panel -->
+  <div class="panel" id="panel-logs">
+    <div class="panel-card">
+      <h2>System Log</h2>
+      <pre class="log" id="log">{{ log }}</pre>
+    </div>
+  </div>
+
+  <!-- Locations panel -->
+  <div class="panel" id="panel-locations">
+    <div id="loc-view-list">
+      <div class="panel-card">
+        <h2>Locations</h2>
+        <p style="font-size:0.8rem;color:var(--muted);margin-bottom:0.75rem">
+          Manage starting locations for your aircraft.
+        </p>
+        <button type="button" class="action-btn btn-restart" id="btn-loc-add-new" style="width:100%;justify-content:center;margin-bottom:0.75rem">+ Add New Location</button>
+        <input type="text" class="loc-picker-search" id="loc-page-search" placeholder="Search locations..." autocomplete="off">
+        <div class="loc-filter-row" id="loc-page-filters" style="margin-top:0.5rem">
+          <button type="button" class="loc-filter-btn active" data-filter="user">My Locations</button>
+          <button type="button" class="loc-filter-btn" data-filter="favorites">Favorites</button>
+          <button type="button" class="loc-filter-btn" data-filter="all">All</button>
+        </div>
+        <div class="loc-admin-list" id="loc-admin-list"></div>
+      </div>
+    </div>
+    <div id="loc-view-form" style="display:none">
+      <div class="panel-card">
+        <button type="button" class="loc-back-btn" id="btn-loc-back">← Back to list</button>
+        <h2 id="loc-form-title">Add Location</h2>
+        <div class="loc-form" id="loc-form">
+          <input type="hidden" id="loc-edit-id" value="">
+          <label>Name</label>
+          <input type="text" id="loc-name" placeholder="Location name">
+          <div class="form-row-2">
+            <div><label>Latitude</label><input type="number" step="any" id="loc-lat" placeholder="-35.363"></div>
+            <div><label>Longitude</label><input type="number" step="any" id="loc-lon" placeholder="149.165"></div>
+          </div>
+          <div class="form-row-2">
+            <div><label>Altitude (m)</label><input type="number" step="any" id="loc-alt" value="100"></div>
+            <div><label>Heading</label><input type="number" step="any" id="loc-heading" value="0"></div>
+          </div>
+          <label>Category</label>
+          <input type="text" id="loc-category" value="General" placeholder="General">
+          <label>Description</label>
+          <textarea id="loc-desc" rows="2" placeholder="Optional notes"></textarea>
+          <label style="display:flex;align-items:center;gap:0.5rem;font-weight:500;color:var(--text)">
+            <input type="checkbox" id="loc-favorite"> Favorite
+          </label>
+          <div class="action-row" style="margin-top:0.25rem">
+            <button type="button" class="action-btn btn-restart" id="btn-loc-save" style="flex:1;justify-content:center">Save Location</button>
+            <button type="button" class="action-btn btn-config" id="btn-loc-cancel">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="toast" id="message-locations"></div>
+  </div>
+
+  <!-- Settings panel -->
+  <div class="panel" id="panel-settings">
+    <div class="panel-card">
+      <h2>Settings</h2>
+      <div class="settings-row"><span class="k">Web GUI</span><span class="v"><a href="{{ status.web_url }}" id="settings-web">{{ status.web_url }}</a></span></div>
+      <div class="settings-row"><span class="k">Hotspot login</span><span class="v"><a href="{{ hotspot_login_url }}" id="settings-hotspot-login">{{ hotspot_login_url }}</a></span></div>
+      <div class="settings-row"><span class="k">Hotspot IP</span><span class="v" id="settings-ip">{{ status.hotspot_ip }}</span></div>
+      <div class="settings-row"><span class="k">WiFi name</span><span class="v" id="settings-wifi-ssid">{{ hotspot_status.ssid or '—' }}</span></div>
+      <div class="settings-row"><span class="k">Account</span><span class="v" id="settings-account">{{ session.username }}</span></div>
+      <div class="settings-row"><span class="k">PX4 SIH</span><span class="v" id="settings-px4">{{ px4_status.version if px4_status.installed else 'Not installed' }}</span></div>
+      <div class="settings-row"><span class="k">Help</span><span class="v"><a href="{{ online_docs_url }}" target="_blank" rel="noopener">Online instructions</a> · <a href="{{ url_for('help_index') }}">On device</a></span></div>
+    </div>
+
+    <div class="panel-card account-form" style="margin-top:1rem" id="wifi-settings-panel">
+      <h2>WiFi Hotspot</h2>
+      <p style="font-size:0.8rem;color:var(--muted);margin-bottom:0.75rem">
+        Network name (SSID) shown when clients scan for WiFi. The hotspot may briefly disconnect while applying a new name.
+      </p>
+      {% if hotspot_status.available %}
+      <div class="settings-row" style="padding-top:0">
+        <span class="k">Status</span>
+        <span class="v" id="wifi-hotspot-status">{{ 'Broadcasting' if hotspot_status.active else 'Not active' }}</span>
+      </div>
+      <label for="wifi-ssid">WiFi name (SSID)</label>
+      <input type="text" id="wifi-ssid" maxlength="32" value="{{ hotspot_status.ssid or '' }}" autocomplete="off">
+      <button type="button" class="action-btn btn-restart" id="btn-save-wifi" style="width:100%;justify-content:center;margin-top:0.25rem">Save WiFi Name</button>
+      {% else %}
+      <div class="empty-state" style="margin:0">{{ hotspot_status.error or 'Hotspot not available on this device' }}</div>
+      {% endif %}
+    </div>
+
+    <div class="panel-card account-form" style="margin-top:1rem">
+      <h2>Change Login</h2>
+      <p style="font-size:0.8rem;color:var(--muted);margin-bottom:0.75rem">
+        Update your username and/or password. Current password is required.
+      </p>
+      <label for="acct-current-password">Current password</label>
+      <input type="password" id="acct-current-password" autocomplete="current-password">
+      <label for="acct-new-username">New username</label>
+      <input type="text" id="acct-new-username" autocomplete="username" placeholder="{{ session.username }}">
+      <label for="acct-new-password">New password</label>
+      <input type="password" id="acct-new-password" autocomplete="new-password" placeholder="Leave blank to keep current">
+      <label for="acct-confirm-password">Confirm new password</label>
+      <input type="password" id="acct-confirm-password" autocomplete="new-password">
+      <button type="button" class="action-btn btn-restart" id="btn-save-account" style="width:100%;justify-content:center;margin-top:0.25rem">Save Login</button>
+    </div>
+
+    <div class="toast" id="message-settings"></div>
+
+    <div class="panel-card" style="margin-top:1rem">
+      <h2>Build SITL Binaries</h2>
+      <p style="font-size:0.8rem;color:var(--muted);margin-bottom:0.75rem">
+        Build a vehicle binary to unlock it in the simulator picker.
+      </p>
+      <div id="build-list">
+        {% for b in buildable %}
+        <div class="build-item" data-vehicle="{{ b.vehicle }}">
+          <div class="build-item-header">
+            <span class="name">{{ b.vehicle }} <span style="color:var(--muted);font-weight:400">→ {{ b.binary }}</span></span>
+            <button type="button" class="action-btn btn-restart btn-build-one" data-vehicle="{{ b.vehicle }}" style="padding:0.35rem 0.65rem;font-size:0.75rem">Build</button>
+          </div>
+          <div class="build-progress" style="display:none">
+            <div class="build-item-header" style="margin-bottom:0.35rem">
+              <span class="name" style="font-weight:500">Building…</span>
+              <span class="pct build-pct">0%</span>
+            </div>
+            <div class="progress-bar"><div class="progress-bar-fill build-fill"></div></div>
+            <div class="build-message"></div>
+          </div>
+        </div>
+        {% else %}
+        <div class="empty-state" style="margin:0">All available vehicle binaries are built.</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="panel-card" style="margin-top:1rem">
+      <div class="action-row" style="margin-top:0">
+        <a href="{{ url_for('logout') }}" class="action-btn btn-stop" style="text-decoration:none;display:inline-flex">Sign Out</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Help panel -->
+  <div class="panel" id="panel-help">
+    <div class="panel-card">
+      <h2>Help &amp; Instructions</h2>
+      <p style="font-size:0.85rem;color:var(--muted);margin-bottom:0.75rem">
+        Full walkthroughs for every HiveCard workflow. Also available online at
+        <a href="{{ online_docs_url }}" target="_blank" rel="noopener">jamesuasop.github.io/hivecard</a>
+        or on-device at <a href="{{ url_for('help_index') }}">/help</a>.
+      </p>
+      <div class="help-topics-nav" id="help-topics-nav">
+        {% for item in docs_sections %}
+        <button type="button" class="help-topic-btn{% if loop.first %} active{% endif %}" data-help-section="{{ item.id }}">{{ item.title }}</button>
+        {% endfor %}
+      </div>
+    </div>
+    {% set videos = docs_videos %}
+    {% set docs_brief = false %}
+    {% for item in docs_sections %}
+    <div class="panel-card help-section-panel{% if loop.first %} active{% endif %}" id="help-section-{{ item.id }}" style="margin-top:0.75rem">
+      {% include 'docs/sections/' ~ item.id ~ '.html' %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<nav class="bottom-nav nav-six">
+  <button class="nav-item active" data-panel="dashboard" type="button">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+    Dashboard
+  </button>
+  <button class="nav-item" data-panel="new" type="button">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+    New
+  </button>
+  <button class="nav-item" data-panel="logs" type="button">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+    Logs
+  </button>
+  <button class="nav-item" data-panel="locations" type="button">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s7-4.5 7-11a7 7 0 1 0-14 0c0 6.5 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+    Locations
+  </button>
+  <button class="nav-item" data-panel="settings" type="button">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    Settings
+  </button>
+  <button class="nav-item" data-panel="help" type="button">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    Help
+  </button>
+</nav>
+
+<script src="{{ url_for('static', filename='js/frame-icons.js') }}"></script>
+<script>
+const models = {{ models | tojson }};
+const px4Models = {{ px4_models | tojson }};
+const px4Installed = {{ px4_status.installed | tojson }};
+let locations = {{ locations | tojson }};
+let fleetData = {{ fleet | tojson }};
+let selectedLocationId = '';
+let newLocFilter = 'favorites';
+let locPageFilter = 'user';
+let selectedStack = 'ardupilot';
+
+function frameMeta(frame, vehicle) {
+  return FrameIcons.getFrameMeta(frame, vehicle);
+}
+
+function framesForVehicle(vehicle) {
+  return models.filter(m => m.vehicle === vehicle);
+}
+
+function showMessage(text, ok, panel = 'dash') {
+  const ids = { new: 'message-new', locations: 'message-locations', settings: 'message-settings', dash: 'message-dash' };
+  const el = document.getElementById(ids[panel] || 'message-dash');
+  if (!el) return;
+  el.textContent = text;
+  el.className = 'toast show ' + (ok ? 'ok' : 'err');
+}
+
+async function api(path, method = 'GET', body = null) {
+  const opts = { method, headers: {} };
+  if (body) {
+    opts.headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(body);
+  }
+  return fetch(path, opts).then(r => r.json());
+}
+
+function setPanel(name) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const panel = document.getElementById('panel-' + name);
+  if (panel) panel.classList.add('active');
+  const nav = document.querySelector('[data-panel="' + name + '"]');
+  if (nav) nav.classList.add('active');
+  if (name === 'locations') showLocListView();
+}
+
+function setHelpSection(id) {
+  document.querySelectorAll('.help-section-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.help-topic-btn').forEach(b => b.classList.remove('active'));
+  const panel = document.getElementById('help-section-' + id);
+  const btn = document.querySelector('[data-help-section="' + id + '"]');
+  if (panel) panel.classList.add('active');
+  if (btn) btn.classList.add('active');
+}
+
+function renderFleetCard(inst) {
+  const ready = inst.connection_ready;
+  const running = inst.running;
+  const badgeClass = ready ? '' : (running ? 'not-ready' : 'stopped');
+  const badgeLabel = ready ? 'Running' : (running ? 'Starting' : 'Stopped');
+  const meta = frameMeta(inst.frame, inst.vehicle);
+  const stackLabel = inst.stack_label || (inst.stack === 'px4' ? 'PX4' : 'ArduPilot');
+  const firmwareLabel = inst.stack === 'px4'
+    ? (inst.px4_model || inst.frame || 'PX4 SIH')
+    : (inst.vehicle || 'ArduPilot');
+  const airframeLabel = inst.stack === 'px4'
+    ? (inst.frame || inst.px4_model || '—')
+    : (inst.frame || '—');
+  return `
+    <article class="vehicle-card" data-id="${inst.id}">
+      <span class="status-badge card-status-corner ${badgeClass}">
+        <span class="badge-dot"></span>${badgeLabel}
+      </span>
+      <div class="vehicle-card-hero">
+        <div class="vehicle-visual">
+          <span class="vehicle-icon">${meta.svg}</span>
+          <div class="info-col vehicle-spec">
+            <div class="info-row"><span class="k">Stack</span><span class="v">${stackLabel}</span></div>
+            <div class="info-row"><span class="k">Firmware</span><span class="v">${firmwareLabel}</span></div>
+            <div class="info-row"><span class="k">Airframe</span><span class="v">${airframeLabel}</span></div>
+          </div>
+        </div>
+        <div class="vehicle-identity">
+          <div class="vehicle-title">${inst.display_name || inst.id}</div>
+        </div>
+      </div>
+      <div class="info-grid">
+        <div class="info-col">
+          <h3>Connection</h3>
+          <div class="info-row"><span class="k">GCS</span><span class="v ${ready ? 'ready' : 'not-ready'}">${inst.connection_status}</span></div>
+          <div class="info-row"><span class="k">UDP</span><span class="v">${inst.mavlink_udp}</span></div>
+          <div class="info-row"><span class="k">SysID</span><span class="v">${inst.mav_sysid}</span></div>
+        </div>
+        <div class="info-col">
+          <h3>Location</h3>
+          <div class="info-row"><span class="k">Name</span><span class="v">${inst.location_name || '—'}</span></div>
+          <div class="info-row"><span class="k">Lat/Lon</span><span class="v">${(inst.location?.latitude ?? 0).toFixed(4)}, ${(inst.location?.longitude ?? 0).toFixed(4)}</span></div>
+          <div class="info-row"><span class="k">Alt</span><span class="v">${inst.location?.altitude ?? 0} m MSL</span></div>
+          ${inst.stack === 'px4' ? '' : `<div class="info-row"><span class="k">Hdg</span><span class="v">${inst.location?.heading ?? 0}°</span></div>`}
+        </div>
+      </div>
+      <div class="card-actions action-row">
+        <button class="action-btn btn-stop btn-stop-one" data-id="${inst.id}" type="button">Stop</button>
+      </div>
+    </article>`;
+}
+
+function applyFleet(fleet) {
+  fleetData = fleet;
+  const list = document.getElementById('fleet-list');
+  const empty = document.getElementById('fleet-empty');
+  const instances = fleet.instances || [];
+  list.innerHTML = instances.map(renderFleetCard).join('');
+  empty.style.display = instances.length ? 'none' : 'block';
+  document.getElementById('summary-dot').className = 'dot' + (fleet.connected_count ? '' : ' off');
+  document.getElementById('summary-text').textContent =
+    `${fleet.connected_count} Connected | ${fleet.error_count || 0} Errors`;
+  const slots = document.getElementById('slots-badge');
+  slots.textContent = `${fleet.running_count}/${fleet.max_instances} Aircraft`;
+  slots.classList.toggle('full', fleet.slots_available === 0);
+  document.getElementById('btn-stop-all').style.display = fleet.running_count ? '' : 'none';
+  document.getElementById('btn-add-vehicle').disabled = fleet.slots_available === 0;
+  const newStart = document.getElementById('btn-new-start');
+  if (newStart) newStart.disabled = fleet.slots_available === 0;
+  const slotsMsg = document.getElementById('new-slots-msg');
+  if (slotsMsg) slotsMsg.textContent = `${fleet.running_count} of ${fleet.max_instances} slots in use.`;
+  list.querySelectorAll('.btn-stop-one').forEach(btn => {
+    btn.addEventListener('click', () => stopOne(btn.dataset.id));
+  });
+}
+
+async function refreshFleet() {
+  try {
+    applyFleet(await api('/api/fleet'));
+  } catch (e) {}
+}
+
+async function stopOne(id) {
+  showMessage('Stopping ' + id + '...', true);
+  const r = await api('/api/fleet/stop/' + id, 'POST');
+  if (r.error) { showMessage(r.error, false); return; }
+  showMessage(id + ' stopped', true);
+  applyFleet(r.fleet);
+}
+
+async function stopAll() {
+  showMessage('Stopping all aircraft...', true);
+  const r = await api('/api/fleet/stop-all', 'POST');
+  applyFleet(r.fleet);
+  showMessage('All aircraft stopped', true);
+}
+
+// --- New aircraft frame picker ---
+function renderNewFramePreview(frame, vehicle) {
+  const meta = frameMeta(frame, vehicle);
+  document.getElementById('new-frame-preview-icon').innerHTML = meta.svg;
+  document.getElementById('new-frame-preview-name').textContent = frame;
+  document.getElementById('new-frame-preview-type').textContent = meta.label;
+  document.getElementById('new-trigger-icon').innerHTML = meta.svg;
+  document.getElementById('new-trigger-text').textContent = frame;
+}
+
+function selectNewFrame(frame) {
+  document.getElementById('new-frame').value = frame;
+  document.querySelectorAll('#new-frame-list .frame-option').forEach(el => {
+    el.classList.toggle('selected', el.dataset.frame === frame);
+  });
+  renderNewFramePreview(frame, document.getElementById('new-vehicle').value);
+  document.getElementById('new-custom-frame-select').classList.remove('open');
+}
+
+function buildNewFrameList(vehicle) {
+  const frames = framesForVehicle(vehicle);
+  const frameSel = document.getElementById('new-frame');
+  const listEl = document.getElementById('new-frame-list');
+  const defaultFrame = document.getElementById('new-vehicle').selectedOptions[0].dataset.default;
+  frameSel.innerHTML = '';
+  listEl.innerHTML = '';
+  let selected = defaultFrame;
+  frames.forEach(f => {
+    const opt = document.createElement('option');
+    opt.value = f.frame;
+    opt.textContent = f.frame;
+    if (f.frame === defaultFrame) opt.selected = true;
+    frameSel.appendChild(opt);
+    const meta = frameMeta(f.frame, vehicle);
+    const row = document.createElement('div');
+    row.className = 'frame-option' + (f.frame === defaultFrame ? ' selected' : '');
+    row.dataset.frame = f.frame;
+    row.innerHTML = `<span class="opt-icon">${meta.svg}</span><span class="opt-label">${f.frame}</span>`;
+    row.addEventListener('click', () => selectNewFrame(f.frame));
+    listEl.appendChild(row);
+  });
+  if (frames.length && !frames.find(f => f.frame === defaultFrame)) {
+    selected = frames[0].frame;
+    frameSel.value = selected;
+  }
+  renderNewFramePreview(frameSel.value, vehicle);
+}
+
+function locationPreview(loc) {
+  if (!loc) return 'No location selected';
+  const base = `${loc.is_favorite ? '★ ' : ''}${loc.name} — ${loc.latitude}, ${loc.longitude} · ${loc.altitude}m MSL`;
+  if (selectedStack === 'px4') return base;
+  return `${base} · hdg ${loc.heading}°`;
+}
+
+function filterLocations(list, filter, search) {
+  let items = [...list];
+  if (filter === 'favorites') {
+    items = items.filter(l => l.is_favorite);
+  } else if (filter === 'user') {
+    items = items.filter(l => (l.source || 'user') === 'user');
+  }
+  if (search) {
+    const q = search.toLowerCase();
+    items = items.filter(l =>
+      l.name.toLowerCase().includes(q) ||
+      (l.category || '').toLowerCase().includes(q) ||
+      (l.description || '').toLowerCase().includes(q)
+    );
+  }
+  return items;
+}
+
+function renderLocationPicker() {
+  const listEl = document.getElementById('new-loc-list');
+  const search = document.getElementById('new-loc-search')?.value || '';
+  if (!listEl) return;
+  const items = filterLocations(locations, newLocFilter, search);
+  if (!items.length) {
+    listEl.innerHTML = '<div class="loc-picker-item" style="cursor:default;color:var(--muted)">No locations match. Add one in <strong>Locations</strong>.</div>';
+    return;
+  }
+  listEl.innerHTML = items.map(loc => `
+    <div class="loc-picker-item ${loc.id === selectedLocationId ? 'selected' : ''}" data-id="${loc.id}">
+      <div class="loc-item-name">${loc.is_favorite ? '<span class="fav-star">★</span> ' : ''}${loc.name}</div>
+      <div class="loc-item-meta">${loc.latitude}, ${loc.longitude} · ${loc.altitude}m · ${loc.category || 'General'}</div>
+    </div>
+  `).join('');
+  listEl.querySelectorAll('.loc-picker-item[data-id]').forEach(el => {
+    el.addEventListener('click', () => selectLocation(el.dataset.id));
+  });
+  if (!selectedLocationId && items.length) {
+    selectLocation(items[0].id);
+  } else if (selectedLocationId) {
+    const loc = locations.find(l => l.id === selectedLocationId);
+    document.getElementById('new-loc-preview').textContent = locationPreview(loc);
+  }
+}
+
+function selectLocation(id) {
+  selectedLocationId = id;
+  document.getElementById('new-location').value = id;
+  const loc = locations.find(l => l.id === id);
+  document.getElementById('new-loc-preview').textContent = locationPreview(loc);
+  document.querySelectorAll('#new-loc-list .loc-picker-item').forEach(el => {
+    el.classList.toggle('selected', el.dataset.id === id);
+  });
+}
+
+async function reloadLocations() {
+  locations = await api('/api/locations');
+  renderLocationPicker();
+  renderLocAdmin();
+}
+
+async function startNewAircraft() {
+  const location_id = selectedLocationId || document.getElementById('new-location')?.value;
+  if (!location_id) {
+    showMessage('Select a starting location first', false, 'new');
+    return;
+  }
+  let payload;
+  if (selectedStack === 'px4') {
+    const modelEl = document.getElementById('new-px4-model');
+    const model = modelEl?.value;
+    const frame = modelEl?.selectedOptions[0]?.dataset.frame;
+    if (!model || !frame) return;
+    payload = { stack: 'px4', vehicle: 'PX4', frame, px4_model: model, location_id };
+  } else {
+    const vehicle = document.getElementById('new-vehicle')?.value;
+    const frame = document.getElementById('new-frame')?.value;
+    if (!vehicle || !frame) return;
+    payload = { stack: 'ardupilot', vehicle, frame, location_id };
+  }
+  showMessage('Starting aircraft...', true, 'new');
+  const r = await api('/api/fleet/start', 'POST', payload);
+  if (r.error) { showMessage(r.error, false, 'new'); return; }
+  showMessage('Aircraft started', true, 'new');
+  applyFleet(r.fleet);
+  setPanel('dashboard');
+}
+
+function setNewStack(stack) {
+  selectedStack = stack;
+  document.querySelectorAll('#new-stack-filters .loc-filter-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.stack === stack);
+  });
+  const ap = document.getElementById('new-ap-section');
+  const px4 = document.getElementById('new-px4-section');
+  const missing = document.getElementById('px4-missing-msg');
+  const locHint = document.getElementById('px4-loc-hint');
+  if (ap) ap.style.display = stack === 'ardupilot' ? '' : 'none';
+  if (px4) px4.style.display = stack === 'px4' ? '' : 'none';
+  if (missing) missing.style.display = stack === 'px4' && !px4Installed ? 'block' : 'none';
+  if (locHint) locHint.style.display = stack === 'px4' ? 'block' : 'none';
+  const startBtn = document.getElementById('btn-new-start');
+  if (startBtn) startBtn.disabled = stack === 'px4' ? !px4Installed : false;
+  const loc = locations.find(l => l.id === selectedLocationId);
+  if (loc) document.getElementById('new-loc-preview').textContent = locationPreview(loc);
+}
+
+function renderPx4Preview() {
+  const modelEl = document.getElementById('new-px4-model');
+  if (!modelEl) return;
+  const frame = modelEl.selectedOptions[0]?.dataset.frame || 'quad';
+  const label = modelEl.selectedOptions[0]?.textContent || 'PX4';
+  const meta = frameMeta(frame, 'PX4');
+  document.getElementById('new-px4-preview-icon').innerHTML = meta.svg;
+  document.getElementById('new-px4-preview-name').textContent = label;
+  document.getElementById('new-px4-preview-type').textContent = 'PX4 SIH · ' + frame;
+}
+
+function showLocListView() {
+  document.getElementById('loc-view-list').style.display = '';
+  document.getElementById('loc-view-form').style.display = 'none';
+}
+
+function showLocFormView(title) {
+  document.getElementById('loc-form-title').textContent = title || 'Add Location';
+  document.getElementById('loc-view-list').style.display = 'none';
+  document.getElementById('loc-view-form').style.display = '';
+}
+
+// --- Location admin ---
+function renderLocAdmin() {
+  const list = document.getElementById('loc-admin-list');
+  if (!list) return;
+  const search = document.getElementById('loc-page-search')?.value || '';
+  const items = filterLocations(locations, locPageFilter, search);
+  if (!items.length) {
+    list.innerHTML = '<div class="empty-state" style="margin:0.5rem 0">No locations in this view. Tap <strong>+ Add New Location</strong>.</div>';
+    return;
+  }
+  list.innerHTML = items.map(loc => `
+    <div class="loc-row" data-id="${loc.id}">
+      <div>
+        <div>${loc.is_favorite ? '<span class="fav-star">★</span> ' : ''}<strong>${loc.name}</strong> <span style="color:var(--muted)">· ${loc.category || 'General'}</span></div>
+        <div class="loc-meta">${loc.latitude}, ${loc.longitude} · ${loc.altitude}m · hdg ${loc.heading}°${loc.source === 'user' ? ' · custom' : ''}</div>
+      </div>
+      <div class="loc-actions">
+        <button type="button" class="btn-loc-edit" data-id="${loc.id}">Edit</button>
+        ${(loc.source || '') === 'ardupilot' ? '' : '<button type="button" class="btn-loc-del danger" data-id="' + loc.id + '">Del</button>'}
+      </div>
+    </div>
+  `).join('');
+  list.querySelectorAll('.btn-loc-edit').forEach(b => b.addEventListener('click', () => editLocation(b.dataset.id)));
+  list.querySelectorAll('.btn-loc-del').forEach(b => b.addEventListener('click', () => deleteLocation(b.dataset.id)));
+}
+
+function clearLocForm() {
+  document.getElementById('loc-edit-id').value = '';
+  document.getElementById('loc-name').value = '';
+  document.getElementById('loc-lat').value = '';
+  document.getElementById('loc-lon').value = '';
+  document.getElementById('loc-alt').value = '100';
+  document.getElementById('loc-heading').value = '0';
+  document.getElementById('loc-category').value = 'General';
+  document.getElementById('loc-desc').value = '';
+  document.getElementById('loc-favorite').checked = false;
+  document.getElementById('btn-loc-save').textContent = 'Save Location';
+}
+
+function editLocation(id) {
+  const loc = locations.find(l => l.id === id);
+  if (!loc) return;
+  document.getElementById('loc-edit-id').value = loc.id;
+  document.getElementById('loc-name').value = loc.name;
+  document.getElementById('loc-lat').value = loc.latitude;
+  document.getElementById('loc-lon').value = loc.longitude;
+  document.getElementById('loc-alt').value = loc.altitude;
+  document.getElementById('loc-heading').value = loc.heading;
+  document.getElementById('loc-category').value = loc.category || 'General';
+  document.getElementById('loc-desc').value = loc.description || '';
+  document.getElementById('loc-favorite').checked = !!loc.is_favorite;
+  document.getElementById('btn-loc-save').textContent = 'Update Location';
+  showLocFormView('Edit Location');
+}
+
+async function saveLocation() {
+  const id = document.getElementById('loc-edit-id').value;
+  const data = {
+    name: document.getElementById('loc-name').value,
+    latitude: parseFloat(document.getElementById('loc-lat').value),
+    longitude: parseFloat(document.getElementById('loc-lon').value),
+    altitude: parseFloat(document.getElementById('loc-alt').value),
+    heading: parseFloat(document.getElementById('loc-heading').value),
+    category: document.getElementById('loc-category').value,
+    description: document.getElementById('loc-desc').value,
+    is_favorite: document.getElementById('loc-favorite').checked,
+  };
+  const r = id
+    ? await api('/api/locations/' + id, 'PUT', data)
+    : await api('/api/locations', 'POST', data);
+  if (r.error) { showMessage(r.error, false, 'locations'); return; }
+  await reloadLocations();
+  clearLocForm();
+  showLocListView();
+  showMessage('Location saved', true, 'locations');
+}
+
+async function deleteLocation(id) {
+  if (!confirm('Delete this location?')) return;
+  const r = await api('/api/locations/' + id, 'DELETE');
+  if (r.error) { showMessage(r.error, false, 'locations'); return; }
+  await reloadLocations();
+  showMessage('Location deleted', true, 'locations');
+}
+
+// --- Build status ---
+let buildPollTimer = null;
+function updateBuildUI(st) {
+  const item = document.querySelector(`.build-item[data-vehicle="${st.vehicle}"]`);
+  if (!item) return;
+  const prog = item.querySelector('.build-progress');
+  const btn = item.querySelector('.btn-build-one');
+  const fill = item.querySelector('.build-fill');
+  const pctEl = item.querySelector('.build-pct');
+  const msgEl = item.querySelector('.build-message');
+  const pct = st.percent || 0;
+  if (st.status === 'building' || st.status === 'done') {
+    if (prog) prog.style.display = 'block';
+    if (btn) btn.style.display = 'none';
+    if (fill) fill.style.width = pct + '%';
+    if (pctEl) pctEl.textContent = pct + '%';
+    if (msgEl) msgEl.textContent = st.message || '';
+  }
+  if (st.status === 'done') {
+    if (msgEl) msgEl.textContent = 'Build complete — reload to select this vehicle.';
+    setTimeout(() => location.reload(), 2000);
+  }
+}
+async function pollBuildStatus() {
+  try {
+    const all = await api('/api/build/status');
+    if (all.jobs) {
+      all.jobs.forEach(updateBuildUI);
+      if (!all.any_running && all.jobs.every(j => j.status === 'done' || j.status === 'failed')) {
+        clearInterval(buildPollTimer);
+        buildPollTimer = null;
+      }
+    }
+  } catch (e) {}
+}
+async function startBuild(vehicle) {
+  const r = await api('/api/build', 'POST', { vehicle });
+  if (r.error) { showMessage(r.error, false); return; }
+  if (r.status) updateBuildUI(r.status);
+  if (!buildPollTimer) buildPollTimer = setInterval(pollBuildStatus, 2000);
+}
+
+async function refreshLog() {
+  try {
+    const d = await api('/api/log');
+    document.getElementById('log').textContent = d.log;
+  } catch (e) {}
+}
+
+async function saveAccount() {
+  const current_password = document.getElementById('acct-current-password').value;
+  const new_username = document.getElementById('acct-new-username').value.trim();
+  const new_password = document.getElementById('acct-new-password').value;
+  const confirm_password = document.getElementById('acct-confirm-password').value;
+
+  if (!current_password) {
+    showMessage('Enter your current password', false, 'settings');
+    return;
+  }
+  if (!new_username && !new_password) {
+    showMessage('Enter a new username and/or new password', false, 'settings');
+    return;
+  }
+
+  const r = await api('/api/account', 'PUT', {
+    current_password,
+    new_username,
+    new_password,
+    confirm_password,
+  });
+  if (r.error) {
+    showMessage(r.error, false, 'settings');
+    return;
+  }
+
+  document.getElementById('acct-current-password').value = '';
+  document.getElementById('acct-new-username').value = '';
+  document.getElementById('acct-new-password').value = '';
+  document.getElementById('acct-confirm-password').value = '';
+  const acctEl = document.getElementById('settings-account');
+  if (acctEl) acctEl.textContent = r.username;
+  showMessage('Login updated successfully', true, 'settings');
+}
+
+async function saveWifiSsid() {
+  const ssid = document.getElementById('wifi-ssid')?.value?.trim();
+  if (!ssid) {
+    showMessage('Enter a WiFi name', false, 'settings');
+    return;
+  }
+  showMessage('Updating WiFi name…', true, 'settings');
+  const r = await api('/api/hotspot', 'PUT', { ssid });
+  if (r.error) {
+    showMessage(r.error, false, 'settings');
+    return;
+  }
+  const statusEl = document.getElementById('wifi-hotspot-status');
+  if (statusEl) statusEl.textContent = r.active ? 'Broadcasting' : 'Not active';
+  if (document.getElementById('wifi-ssid')) {
+    document.getElementById('wifi-ssid').value = r.ssid || ssid;
+  }
+  showMessage('WiFi name updated to "' + (r.ssid || ssid) + '"', true, 'settings');
+  if (document.getElementById('settings-wifi-ssid')) {
+    document.getElementById('settings-wifi-ssid').textContent = r.ssid || ssid;
+  }
+}
+
+// --- Event listeners ---
+document.querySelectorAll('.nav-item').forEach(btn => {
+  btn.addEventListener('click', () => setPanel(btn.dataset.panel));
+});
+document.getElementById('btn-save-account')?.addEventListener('click', saveAccount);
+document.getElementById('btn-save-wifi')?.addEventListener('click', saveWifiSsid);
+document.getElementById('help-topics-nav')?.addEventListener('click', e => {
+  const btn = e.target.closest('.help-topic-btn');
+  if (!btn) return;
+  setHelpSection(btn.dataset.helpSection);
+});
+document.getElementById('btn-add-vehicle').addEventListener('click', () => setPanel('new'));
+document.getElementById('btn-stop-all').addEventListener('click', stopAll);
+document.getElementById('new-vehicle')?.addEventListener('change', () => buildNewFrameList(document.getElementById('new-vehicle').value));
+document.getElementById('new-frame-trigger')?.addEventListener('click', e => {
+  e.stopPropagation();
+  document.getElementById('new-custom-frame-select').classList.toggle('open');
+});
+document.getElementById('new-custom-frame-select')?.addEventListener('click', e => e.stopPropagation());
+document.addEventListener('click', () => document.getElementById('new-custom-frame-select')?.classList.remove('open'));
+document.getElementById('btn-new-start')?.addEventListener('click', startNewAircraft);
+document.querySelectorAll('#new-stack-filters .loc-filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (btn.disabled) return;
+    setNewStack(btn.dataset.stack);
+  });
+});
+document.getElementById('new-px4-model')?.addEventListener('change', renderPx4Preview);
+document.getElementById('new-loc-search')?.addEventListener('input', renderLocationPicker);
+document.querySelectorAll('#new-loc-filters .loc-filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#new-loc-filters .loc-filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    newLocFilter = btn.dataset.filter;
+    renderLocationPicker();
+  });
+});
+document.getElementById('loc-page-search')?.addEventListener('input', renderLocAdmin);
+document.querySelectorAll('#loc-page-filters .loc-filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#loc-page-filters .loc-filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    locPageFilter = btn.dataset.filter;
+    renderLocAdmin();
+  });
+});
+document.getElementById('btn-loc-add-new')?.addEventListener('click', () => {
+  clearLocForm();
+  document.getElementById('loc-favorite').checked = true;
+  showLocFormView('Add Location');
+});
+document.getElementById('btn-loc-back')?.addEventListener('click', () => {
+  clearLocForm();
+  showLocListView();
+});
+document.getElementById('btn-loc-save').addEventListener('click', saveLocation);
+document.getElementById('btn-loc-cancel').addEventListener('click', () => {
+  clearLocForm();
+  showLocListView();
+});
+document.querySelectorAll('.btn-build-one').forEach(btn => {
+  btn.addEventListener('click', () => startBuild(btn.dataset.vehicle));
+});
+
+// Init
+applyFleet(fleetData);
+if (document.getElementById('new-vehicle')) buildNewFrameList(document.getElementById('new-vehicle').value);
+renderPx4Preview();
+setNewStack('ardupilot');
+renderLocationPicker();
+renderLocAdmin();
+showLocListView();
+setInterval(refreshFleet, 5000);
+setInterval(refreshLog, 8000);
+pollBuildStatus();
+</script>
+{% endblock %}
